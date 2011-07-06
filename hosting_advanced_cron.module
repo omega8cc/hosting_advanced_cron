@@ -1,0 +1,197 @@
+<?php
+
+// Use the default cron interval for this site.
+define('HOSTING_ADVANCED_CRON_SITE_DEFAULT', 0);
+
+// Do not run cron for this site.
+define('HOSTING_ADVANCED_CRON_SITE_DISABLED', -1);
+
+/**
+ * Implements hook_hosting_queues().
+ */
+function hosting_advanced_cron_hosting_queues() {
+  $items['advanced_cron'] = array(
+    'type' => 'batch',
+    'name' => t('Advanced Cron queue'),
+    'description' => t('Run cron on hosted sites.'),
+    'total_items' => hosting_site_count(),
+    'frequency' => strtotime("1 min", 0),
+    'min_threads' => 6,
+    'max_threads' => 12,
+    'threshold' => 100,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_perm().
+ */
+function hosting_advanced_cron_perm() {
+  return array('configure site cron interval');
+}
+
+/**
+ * Queue callback (hosting_<QUEUE_NAME>_queue) for the advanced cron queue.
+ *
+ * This function is called by hosting_run_queue() whenever the "Advanced Cron"
+ * queue is run.
+ */
+function hosting_advanced_cron_queue($count) {
+  // Get a list of sites for which to run cron.
+  $sites = hosting_advanced_cron_get_sites($count);
+
+  foreach ($sites as $site) {
+    $site_name = hosting_context_name($site->nid);
+    if (variable_get('hosting_cron_use_backend', TRUE)) {
+      provision_backend_invoke($site_name, "cron");
+    }
+    else {
+      $cmd = sprintf("wget -O - -q %s  > /dev/null", escapeshellarg(_hosting_site_url($site) . '/cron.php'));
+      drush_shell_exec($cmd);
+    }
+
+    // We are updating the site table here directly to avoid a possible race condition,
+    // with the task queue. There exists a chance that they might both try to save the
+    // same node at the same time, and then an old record from the cron queue might
+    // replace the newly updated record.
+    db_query("UPDATE {hosting_site} SET last_cron = %d WHERE nid = %d", mktime(), $site->nid);
+  }
+}
+
+/**
+ * Implements hook_nodeapi().
+ */
+function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
+  if ($node->type == 'site') {
+    switch ($op) {
+      case 'view':
+        if (!$a3) {
+          $cron_text = $node->cron_interval == HOSTING_ADVANCED_CRON_SITE_DISABLED ? t('Disabled') : t('Every !interval', array('!interval' => format_interval($node->cron_interval)));
+	  $cron_text .= '<br />' . t('(Last run: !interval)', array('!interval' => hosting_format_interval($node->last_cron)));
+          $node->content['info']['last_cron'] = array(
+            '#type' => 'item',
+            '#title' => t('Cron'),
+            '#weight' => 20,
+            '#value' => $cron_text,
+          );
+        }
+        break;
+
+      case 'load':
+        // When loading a site node, fetch the site's cron interval from the
+        // database.
+        $result = db_query('SELECT cron_interval FROM {hosting_advanced_cron} WHERE nid = %d', $node->nid);
+        $result = db_fetch_array($result);
+
+        // If no specific cron interval was set for this site, use the default.
+        if (!$result) {
+          $result = array('cron_interval' => variable_get('hosting_advanced_cron_default_interval', 3600));
+        }
+  
+        return $result;
+
+      case 'delete':
+      case 'update':
+        db_query('DELETE FROM {hosting_advanced_cron} WHERE nid = %d', $node->nid);
+      case 'insert':
+        if ($node->cron_interval != HOSTING_ADVANCED_CRON_SITE_DEFAULT) {
+          db_query('INSERT INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, $node->cron_interval);
+        }
+        break;
+    }
+  }
+}
+
+/**
+ * Retrieves a list of sites for which to run cron.
+ */
+function hosting_advanced_cron_get_sites($limit = 5) {
+  $result = db_query("SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = 'site' AND hs.status = %d ORDER BY hs.last_cron ASC, n.nid ASC", HOSTING_SITE_ENABLED);
+  while (($site = db_fetch_object($result)) && (count($sites) <= $limit)) {
+    // Determine the cron interval. If not specified for this site, use the
+    // default cron interval value.
+    $cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', 3600);
+
+    // Run cron if it has never ran before for this site, or if the cron
+    // interval since last cron run has been exceeded. 
+    if ((!$site->last_cron && $cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED) || ($site->last_cron + $site->cron_interval < mktime())) {
+      $sites[$site->nid] = node_load($site->nid);
+    }
+  }
+
+  return $sites;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function hosting_advanced_cron_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'site_node_form') {
+      return hosting_advanced_cron_form_data($form);
+  }
+}
+
+/**
+ * Implements hook_form_<FORM_ID>_alter().
+ */
+function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) {
+  $options = hosting_advanced_cron_interval_options();
+  unset($options[0]);
+
+  $form['hosting_advanced_cron_default_interval'] = array(
+    '#type' => 'select',
+    '#title' => t('Default cron interval'),
+    '#options' => $options,
+    '#description' => t('The cron interval to use for all sites unless overriden on the site node itself.'),
+    '#default_value' => variable_get('hosting_advanced_cron_default_interval', 3600),
+  );
+
+  $form['hosting_cron_use_backend'] = array(
+    '#type' => 'radios',
+    '#title' => t('Cron method'),
+    '#description' => t('For running cron on a site. You can use the drush cron implementation or a traditional wget method.'),
+    '#options' => array('Wget', 'Drush'),
+    '#default_value' => variable_get('hosting_cron_use_backend', TRUE),
+  );
+
+  // Add some weight to the buttons to push them to the bottom of tneform.
+  $form['buttons']['#weight'] = 1000;
+}
+
+/**
+ * Alter the node form for a site to the cron interval setting.
+ *
+ * @param $form
+ *   The form to alter, should come from hook_form_alter().
+ */
+function hosting_advanced_cron_form_data(&$form) {
+  if (user_access('configure site cron interval')) {
+    $form['cron_interval'] = array(
+      '#type' => 'select',
+      '#title' => t('Cron interval'),
+      '#options' => hosting_advanced_cron_interval_options(),
+      '#description' => t('Cron will be automatically run for this site at the interval defined here.'),
+      '#default_value' => $form['#node']->cron_interval,
+      '#weight' => 10,
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * Returns an array of options for the cron interval.
+ *
+ * @return
+ *   An associative array with the interval in seconds as key, and a
+ *   human-readable interval as value.
+ */
+function hosting_advanced_cron_interval_options() {
+  $options = array(
+    HOSTING_ADVANCED_CRON_SITE_DISABLED => t('Disabled'),
+    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('Default'),
+  );
+  $options += drupal_map_assoc(array(60, 300, 900, 1800, 3600, 21600, 86400), 'format_interval');
+
+  return $options;
+}

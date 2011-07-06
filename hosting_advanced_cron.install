@@ -1,0 +1,39 @@
+<?php
+/**
+ * Implements hook_schema().
+ */
+function hosting_advanced_cron_schema() {
+  $schema['hosting_advanced_cron'] = array(
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'cron_interval' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function hosting_advanced_cron_install() {
+  drupal_install_schema('hosting_advanced_cron');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function hosting_advanced_cron_uninstall() {
+  drupal_uninstall_schema('hosting_advanced_cron');
+  variable_del('hosting_advanced_cron_default_interval');
+}
