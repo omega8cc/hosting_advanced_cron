@@ -54,7 +54,7 @@ function hosting_advanced_cron_queue($count) {
     // with the task queue. There exists a chance that they might both try to save the
     // same node at the same time, and then an old record from the cron queue might
     // replace the newly updated record.
-    db_query("UPDATE {hosting_site} SET last_cron = %d WHERE nid = %d", mktime(), $site->nid);
+    db_query("UPDATE {hosting_site} SET last_cron = %d WHERE nid = %d", time(), $site->nid);
   }
 }
 
@@ -114,7 +114,7 @@ function hosting_advanced_cron_get_sites($limit = 5) {
 
     // Run cron if it has never ran before for this site, or if the cron
     // interval since last cron run has been exceeded. 
-    if ($cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED && (!$site->last_cron || ($site->last_cron + $site->cron_interval < mktime()))) {
+    if ($cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED && (!$site->last_cron || ($site->last_cron + $site->cron_interval < time()))) {
       $sites[$site->nid] = node_load($site->nid);
     }
   }
