@@ -123,15 +123,6 @@ function hosting_advanced_cron_get_sites($limit = 5) {
 }
 
 /**
- * Implements hook_form_alter().
- */
-function hosting_advanced_cron_form_alter(&$form, $form_state, $form_id) {
-  if ($form_id == 'site_node_form') {
-      return hosting_advanced_cron_form_data($form);
-  }
-}
-
-/**
  * Implements hook_form_<FORM_ID>_alter().
  */
 function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) {
@@ -159,12 +150,11 @@ function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) 
 }
 
 /**
- * Alter the node form for a site to the cron interval setting.
+ * Implements hook_form_<FORM_ID>_alter().
  *
- * @param $form
- *   The form to alter, should come from hook_form_alter().
+ * Alter the node form for a site to the cron interval setting.
  */
-function hosting_advanced_cron_form_data(&$form) {
+function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
   if (user_access('configure site cron interval')) {
     $form['cron_interval'] = array(
       '#type' => 'select',
