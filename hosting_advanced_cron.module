@@ -14,13 +14,25 @@ function hosting_advanced_cron_hosting_queues() {
     'type' => 'batch',
     'name' => t('Advanced Cron queue'),
     'description' => t('Run cron on hosted sites.'),
-    'total_items' => hosting_site_count(),
+    'total_items' => hosting_advanced_cron_hosting_site_count(),
     'frequency' => strtotime("1 min", 0),
     'min_threads' => 6,
     'max_threads' => 12,
     'threshold' => 100,
   );
   return $items;
+}
+
+function hosting_advanced_cron_hosting_site_count() {
+
+  $sql = "SELECT count(n.nid) FROM {node} n
+    LEFT JOIN {hosting_site} hs ON n.nid = hs.nid
+    LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid
+    WHERE n.type = 'site' AND hs.status = %d
+    AND ((hac.cron_interval IS NOT NULL AND hac.cron_interval > 0)
+    OR (hac.cron_interval IS NULL AND %d > 0))";
+
+  return db_result(db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', 3600)));
 }
 
 /**
