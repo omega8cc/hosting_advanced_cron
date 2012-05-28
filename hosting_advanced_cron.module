@@ -99,7 +99,7 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
         if (!$result) {
           $result = array('cron_interval' => variable_get('hosting_advanced_cron_default_interval', 3600));
         }
-  
+
         return $result;
 
       case 'delete':
