@@ -1,7 +1,7 @@
 <?php
 
 // Use the default cron interval for this site.
-define('HOSTING_ADVANCED_CRON_SITE_DEFAULT', 0);
+define('HOSTING_ADVANCED_CRON_SITE_DEFAULT', 10800);
 
 // Do not run cron for this site.
 define('HOSTING_ADVANCED_CRON_SITE_DISABLED', -1);
@@ -191,9 +191,9 @@ function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
 function hosting_advanced_cron_interval_options() {
   $options = array(
     HOSTING_ADVANCED_CRON_SITE_DISABLED => t('Disabled'),
-    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('Default'),
+    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('3h (default)'),
   );
-  $options += drupal_map_assoc(array(60, 300, 900, 1800, 3600, 21600, 86400), 'format_interval');
+  $options += drupal_map_assoc(array(60, 180, 300, 600, 900, 1800, 3600, 10800, 21600, 43200, 86400), 'format_interval');
 
   return $options;
 }
