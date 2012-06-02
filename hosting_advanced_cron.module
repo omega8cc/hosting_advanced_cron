@@ -145,7 +145,7 @@ function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) 
     '#type' => 'select',
     '#title' => t('Default cron interval'),
     '#options' => $options,
-    '#description' => t('The cron interval to use for all sites unless overriden on the site node itself.'),
+    '#description' => t('The cron interval to use for all sites unless overridden on the site node itself.'),
     '#default_value' => variable_get('hosting_advanced_cron_default_interval', 3600),
   );
 
