@@ -56,6 +56,8 @@ function hosting_advanced_cron_queue($count) {
     $site_name = hosting_context_name($site->nid);
     if (!preg_match("/(?:dev\.|devel\.)/", $site_name)) {
       if (variable_get('hosting_cron_use_backend', TRUE)) {
+        provision_backend_invoke($site_name, "elysia-cron");
+        sleep(3);
         provision_backend_invoke($site_name, "cron");
       }
       else {
@@ -75,7 +77,7 @@ function hosting_advanced_cron_queue($count) {
       db_query("UPDATE {hosting_site} SET last_cron=%d WHERE nid=%d", time(), $site->nid);
 
       // A small trick to avoid high load when still too many crons are started at once.
-      sleep(5);
+      sleep(3);
     }
   }
 }
