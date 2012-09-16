@@ -186,7 +186,7 @@ function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
       '#options' => hosting_advanced_cron_interval_options(),
       '#description' => t('Cron will be automatically run for this site at the interval defined here.'),
       '#default_value' => $form['#node']->cron_interval,
-      '#weight' => 10,
+      '#weight' => 3,
     );
 
     return $form;
