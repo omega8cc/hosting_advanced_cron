@@ -62,7 +62,7 @@ function hosting_advanced_cron_queue($count) {
       if (!empty($site->cron_key)) {
         $url .= '?cron_key=' . rawurlencode($site->cron_key);
       }
-      $cmd = sprintf("wget -O - -q %s  > /dev/null", escapeshellarg($url));
+      $cmd = sprintf("wget --timeout=5 --tries=2 -O - -q %s  > /dev/null", escapeshellarg($url));
       drush_shell_exec($cmd);
     }
     // We are updating the site table here directly to avoid a possible race condition,
