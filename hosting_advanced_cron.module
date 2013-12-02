@@ -51,19 +51,29 @@ function hosting_advanced_cron_queue($count) {
   $sites = hosting_advanced_cron_get_sites($count);
   foreach ($sites as $site) {
     $site_name = hosting_context_name($site->nid);
-    if (variable_get('hosting_cron_use_backend', TRUE)) {
+    $this_name = ltrim($site_name, '@');
+    $this_host = '-H "Host: ' . $this_name . '"';
+    $profile = node_load($site->profile);
+    if ($profile->short_name == 'hostmaster') {
+      provision_backend_invoke($site_name, "cron");
+    }
+    elseif (variable_get('hosting_cron_use_backend', TRUE)) {
       provision_backend_invoke($site_name, "elysia-cron");
       sleep(3);
       provision_backend_invoke($site_name, "cron");
     }
     else {
       // Optionally add the cron_key querystring key if the site has one.
-      $url =_hosting_site_url($site) . '/cron.php';
+      $url = 'http://127.0.0.1/cron.php';
       if (!empty($site->cron_key)) {
         $url .= '?cron_key=' . rawurlencode($site->cron_key);
       }
-      $cmd = sprintf("wget --timeout=5 --tries=2 -O - -q %s  > /dev/null", escapeshellarg($url));
-      drush_shell_exec($cmd);
+      $cmd = sprintf('curl -k -s -A iCabPro %s %s',
+        escapeshellarg($this_host),
+        escapeshellarg($url)
+      );
+      `curl -k -s -A iCabPro $this_host $url > /dev/null`;
+      //drush_shell_exec($cmd);
     }
     // We are updating the site table here directly to avoid a possible race condition,
     // with the task queue. There exists a chance that they might both try to save the
