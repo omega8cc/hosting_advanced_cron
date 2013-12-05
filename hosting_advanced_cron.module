@@ -68,11 +68,11 @@ function hosting_advanced_cron_queue($count) {
       if (!empty($site->cron_key)) {
         $url .= '?cron_key=' . rawurlencode($site->cron_key);
       }
-      $cmd = sprintf('curl -k -s -A iCabPro %s %s',
+      $cmd = sprintf('curl -L --max-redirs 10 -k -s -A iCabPro %s %s',
         escapeshellarg($this_host),
         escapeshellarg($url)
       );
-      `curl -k -s -A iCabPro $this_host $url > /dev/null`;
+      `curl -L --max-redirs 10 -k -s -A iCabPro $this_host $url > /dev/null`;
       //drush_shell_exec($cmd);
     }
     // We are updating the site table here directly to avoid a possible race condition,
