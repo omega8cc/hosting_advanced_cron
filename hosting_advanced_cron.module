@@ -59,7 +59,7 @@ function hosting_advanced_cron_queue($count) {
     }
     elseif (variable_get('hosting_cron_use_backend', TRUE)) {
       provision_backend_invoke($site_name, "elysia-cron");
-      sleep(5);
+      sleep(8);
       provision_backend_invoke($site_name, "cron");
     }
     else {
@@ -68,11 +68,11 @@ function hosting_advanced_cron_queue($count) {
       if (!empty($site->cron_key)) {
         $url .= '?cron_key=' . rawurlencode($site->cron_key);
       }
-      $cmd = sprintf('curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 50 -A iCabProXy %s %s',
+      $cmd = sprintf('curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 120 --max-time 300 -A iCabProXy %s %s',
         escapeshellarg($this_host),
         escapeshellarg($url)
       );
-      `curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 50 -A iCabPro $this_host $url > /dev/null`;
+      `curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 120 --max-time 300 -A iCabProXy $this_host $url > /dev/null`;
       //drush_shell_exec($cmd);
     }
     // We are updating the site table here directly to avoid a possible race condition,
@@ -81,7 +81,7 @@ function hosting_advanced_cron_queue($count) {
     // replace the newly updated record.
     db_query("UPDATE {hosting_site} SET last_cron=%d WHERE nid=%d", time(), $site->nid);
     // A small trick to avoid high load when still too many crons are started at once.
-    sleep(5);
+    sleep(8);
   }
 }
 
