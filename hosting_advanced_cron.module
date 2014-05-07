@@ -53,13 +53,14 @@ function hosting_advanced_cron_queue($count) {
     $site_name = hosting_context_name($site->nid);
     $this_name = ltrim($site_name, '@');
     $this_host = '-H "Host: ' . $this_name . '"';
+    $this_cuid = '.' . md5($this_name . '.' . $site->nid) . '.pid';
     $profile = node_load($site->profile);
     if ($profile->short_name == 'hostmaster') {
       provision_backend_invoke($site_name, "cron");
     }
     elseif (variable_get('hosting_cron_use_backend', TRUE)) {
       provision_backend_invoke($site_name, "elysia-cron");
-      sleep(8);
+      sleep(5);
       provision_backend_invoke($site_name, "cron");
     }
     else {
@@ -68,11 +69,18 @@ function hosting_advanced_cron_queue($count) {
       if (!empty($site->cron_key)) {
         $url .= '?cron_key=' . rawurlencode($site->cron_key);
       }
-      $cmd = sprintf('curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 120 --max-time 300 -A iCabProXy %s %s',
+      $cmd = sprintf('curl -L --max-redirs 5 -k -s --retry 1 --retry-delay 30 --max-time 300 -A iCabProQy %s %s',
         escapeshellarg($this_host),
         escapeshellarg($url)
       );
-      `curl -L --max-redirs 1 -k -s --retry 1 --retry-delay 120 --max-time 300 -A iCabProXy $this_host $url > /dev/null`;
+      if (is_readable('/tmp/' . $this_cuid)) {
+        system('touch /tmp/.busy' . $this_cuid);
+      }
+      else {
+        system('touch /tmp/' . $this_cuid);
+        system('curl -L --max-redirs 5 -k -s --retry 1 --retry-delay 30 --max-time 300 -A iCabProXy ' . $this_host . ' ' . $url . ' > /dev/null');
+        system('rm -f /tmp/' . $this_cuid);
+      }
       //drush_shell_exec($cmd);
     }
     // We are updating the site table here directly to avoid a possible race condition,
@@ -81,7 +89,7 @@ function hosting_advanced_cron_queue($count) {
     // replace the newly updated record.
     db_query("UPDATE {hosting_site} SET last_cron=%d WHERE nid=%d", time(), $site->nid);
     // A small trick to avoid high load when still too many crons are started at once.
-    sleep(8);
+    sleep(5);
   }
 }
 
