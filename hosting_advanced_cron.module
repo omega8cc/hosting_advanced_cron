@@ -53,7 +53,7 @@ function hosting_advanced_cron_queue($count) {
     $site_name = hosting_context_name($site->nid);
     $this_name = ltrim($site_name, '@');
     $this_host = '-H "Host: ' . $this_name . '"';
-    $this_cuid = '.' . md5($this_name . '.' . $site->nid) . '.pid';
+    $this_cuid = '.cron.' . md5($this_name . '.' . $site->nid) . '.pid';
     $profile = node_load($site->profile);
     if ($profile->short_name == 'hostmaster') {
       provision_backend_invoke($site_name, "cron");
