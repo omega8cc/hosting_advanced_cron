@@ -64,6 +64,12 @@ function hosting_advanced_cron_queue($count) {
       provision_backend_invoke($site_name, "cron");
     }
     else {
+      if (is_readable($_SERVER['HOME'] . '/.tmp')) {
+        $this_tmp = $_SERVER['HOME'] . '/.tmp/';
+      }
+      else {
+        $this_tmp = '/tmp/';
+      }
       // Optionally add the cron_key querystring key if the site has one.
       $url = 'http://127.0.0.1/cron.php';
       if (!empty($site->cron_key)) {
@@ -73,13 +79,13 @@ function hosting_advanced_cron_queue($count) {
         escapeshellarg($this_host),
         escapeshellarg($url)
       );
-      if (is_readable('/tmp/' . $this_cuid)) {
-        system('touch /tmp/.busy' . $this_cuid);
+      if (is_readable($this_tmp . $this_cuid)) {
+        system('touch ' . $this_tmp . '.busy' . $this_cuid);
       }
       else {
-        system('touch /tmp/' . $this_cuid);
+        system('touch ' . $this_tmp . $this_cuid);
         system('curl -L --max-redirs 5 -k -s --retry 1 --retry-delay 30 --max-time 300 -A iCabProXy ' . $this_host . ' ' . $url . ' > /dev/null');
-        system('rm -f /tmp/' . $this_cuid);
+        system('rm -f ' . $this_tmp . $this_cuid);
       }
       //drush_shell_exec($cmd);
     }
