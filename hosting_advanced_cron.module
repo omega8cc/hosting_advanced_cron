@@ -71,7 +71,7 @@ function hosting_advanced_cron_queue($count) {
         $this_tmp = '/tmp/';
       }
       if (is_readable(d()->root . '/core')) {
-        $url = 'http://127.0.0.1/index.php/cron/';
+        $url = 'http://127.0.0.1/cron/';
         // Optionally add the cron_key querystring key if the site has one.
         if (!empty($site->cron_key)) {
           $url .= rawurlencode($site->cron_key);
