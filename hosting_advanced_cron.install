@@ -37,3 +37,17 @@ function hosting_advanced_cron_uninstall() {
   drupal_uninstall_schema('hosting_advanced_cron');
   variable_del('hosting_advanced_cron_default_interval');
 }
+
+/**
+ * Alter the cron_interval default to match Aegir default.
+ */
+function hosting_advanced_cron_update_6201() {
+  $ret = array();
+  $spec = array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => -1,
+  );
+  db_change_field($ret, 'hosting_advanced_cron', 'cron_interval', 'cron_interval', $spec);
+  return $ret;
+}
