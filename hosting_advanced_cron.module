@@ -232,7 +232,7 @@ function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
 function hosting_advanced_cron_interval_options() {
   $options = array(
     HOSTING_ADVANCED_CRON_SITE_DISABLED => t('Disabled'),
-    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('3h (default)'),
+    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('24h (default)'),
   );
   $options += drupal_map_assoc(array(300, 600, 900, 1800, 3600, 10800, 21600, 43200, 86400, 604800), 'format_interval');
   return $options;
