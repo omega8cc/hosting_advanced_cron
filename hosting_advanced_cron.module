@@ -164,7 +164,7 @@ function hosting_advanced_cron_get_sites($limit = 1) {
     $cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', 10800);
     // Run cron if it has never ran before for this site, or if the cron
     // interval since last cron run has been exceeded.
-    if ($cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED && (!$site->last_cron || ($site->last_cron + $cron_interval < time()))) {
+    if ($cron_interval != "0" && $cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED && (!$site->last_cron || ($site->last_cron + $cron_interval < time()))) {
       $sites[$site->nid] = node_load($site->nid);
     }
   }
