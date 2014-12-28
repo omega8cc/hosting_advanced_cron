@@ -13,8 +13,9 @@ function hosting_advanced_cron_schema() {
       ),
       'cron_interval' => array(
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => -1,
+        'default' => 0,
       ),
     ),
     'primary key' => array('nid'),
@@ -41,12 +42,13 @@ function hosting_advanced_cron_uninstall() {
 /**
  * Alter the cron_interval default to match Aegir default.
  */
-function hosting_advanced_cron_update_6201() {
+function hosting_advanced_cron_update_6203() {
   $ret = array();
   $spec = array(
         'type' => 'int',
+        'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => -1,
+        'default' => 0,
   );
   db_change_field($ret, 'hosting_advanced_cron', 'cron_interval', 'cron_interval', $spec);
   return $ret;
@@ -55,8 +57,17 @@ function hosting_advanced_cron_update_6201() {
 /**
  * Alter the cron_interval for existing sites to match Aegir default.
  */
-function hosting_advanced_cron_update_6202() {
+function hosting_advanced_cron_update_6204() {
   $ret = array();
-  $ret[] = update_sql("UPDATE {hosting_advanced_cron} SET cron_interval = -1 WHERE cron_interval = 0");
+  $ret[] = update_sql("UPDATE {hosting_advanced_cron} SET cron_interval = 0 WHERE cron_interval = -1");
+  return $ret;
+}
+
+/**
+ * Alter the cron_interval for existing sites using too low value.
+ */
+function hosting_advanced_cron_update_6205() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {hosting_advanced_cron} SET cron_interval = 300 WHERE cron_interval > 0 AND cron_interval < 300");
   return $ret;
 }
