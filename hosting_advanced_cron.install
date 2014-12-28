@@ -51,3 +51,12 @@ function hosting_advanced_cron_update_6201() {
   db_change_field($ret, 'hosting_advanced_cron', 'cron_interval', 'cron_interval', $spec);
   return $ret;
 }
+
+/**
+ * Alter the cron_interval for existing sites to match Aegir default.
+ */
+function hosting_advanced_cron_update_6202() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {hosting_advanced_cron} SET cron_interval = -1 WHERE cron_interval = 0");
+  return $ret;
+}
