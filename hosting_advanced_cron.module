@@ -1,10 +1,11 @@
 <?php
 
-// Use the default cron interval for this site.
-define('HOSTING_ADVANCED_CRON_SITE_DEFAULT', 86400);
+// Define the default cron interval, if not specified
+// in hosting_advanced_cron_default_interval variable.
+define('ADV_CRON_DEFAULT', 86400);
 
-// Do not run cron for this site.
-define('HOSTING_ADVANCED_CRON_SITE_DISABLED', 0);
+// Define the interval interpreted as cron turned off.
+define('ADV_CRON_TURNED_OFF', 0);
 
 /**
  * Implements hook_hosting_queues().
@@ -30,7 +31,7 @@ function hosting_advanced_cron_hosting_site_count() {
     WHERE n.type = 'site' AND hs.status = %d
     AND ((hac.cron_interval IS NOT NULL AND hac.cron_interval > 0)
     OR (hac.cron_interval IS NULL AND %d > 0))";
-  return db_result(db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', 86400)));
+  return db_result(db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT)));
 }
 
 /**
@@ -121,7 +122,7 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
     switch ($op) {
       case 'view':
         if (!$a3) {
-          $cron_text = $node->cron_interval == HOSTING_ADVANCED_CRON_SITE_DISABLED ? t('Disabled') : t('Every !interval', array('!interval' => format_interval($node->cron_interval)));
+          $cron_text = $node->cron_interval == ADV_CRON_TURNED_OFF ? t('Disabled') : t('Every !interval', array('!interval' => format_interval($node->cron_interval)));
 	  $cron_text .= '<br />' . t('(Last run: !interval)', array('!interval' => hosting_format_interval($node->last_cron)));
           $node->content['info']['last_cron'] = array(
             '#type' => 'item',
@@ -138,15 +139,21 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
         $result = db_fetch_array($result);
         // If no specific cron interval was set for this site, use the default.
         if (!$result) {
-          $result = array('cron_interval' => variable_get('hosting_advanced_cron_default_interval', 86400));
+          $result = array('cron_interval' => variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT));
         }
         return $result;
       case 'delete':
+        db_query('REPLACE INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, ADV_CRON_TURNED_OFF);
       case 'update':
-        db_query('DELETE FROM {hosting_advanced_cron} WHERE nid = %d', $node->nid);
       case 'insert':
-        if ($node->cron_interval != HOSTING_ADVANCED_CRON_SITE_DEFAULT) {
-          db_query('INSERT INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, $node->cron_interval);
+        if ($node->cron_interval == ADV_CRON_TURNED_OFF) {
+          db_query('REPLACE INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, ADV_CRON_TURNED_OFF);
+        }
+        elseif ($node->cron_interval > ADV_CRON_TURNED_OFF) {
+          db_query('REPLACE INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, $node->cron_interval);
+        }
+        else {
+          db_query('REPLACE INTO {hosting_advanced_cron} VALUES (%d, %d)', $node->nid, ADV_CRON_DEFAULT);
         }
         break;
     }
@@ -159,21 +166,45 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
 function hosting_advanced_cron_get_sites($limit = 1) {
   $result = db_query("SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = 'site' AND hs.status = %d ORDER BY hs.last_cron ASC, n.nid ASC", HOSTING_SITE_ENABLED);
   while (($site = db_fetch_object($result)) && (count($sites) <= $limit)) {
-
-    // Determine the cron interval. If not specified for this site,
-    // use the default hosting_advanced_cron_default_interval value.
-    $cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', 86400);
-
-    // Run cron if it has already ran before for this site,
-    // but cron interval since last cron run has been exceeded.
-    if ($site->last_cron && $cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED) {
-      if ($site->last_cron + $cron_interval < time()) {
+    //
+    // Run cron if it has never ran before for this site,
+    // but only if it has been enabled for this site.
+    //
+    // This shouldn't happen for any newly cloned site,
+    // no matter if the cron is enabled on the source site or not,
+    // to avoid running cron on the cloned copy without any prior control.
+    //
+    // Note that we can't use hosting_advanced_cron_default_interval here
+    // if $site->cron_interval is empty / not set yet, so we have to ignore
+    // the first cron run attempt by using ADV_CRON_TURNED_OFF by default
+    // instead of hosting_advanced_cron_default_interval if we can't read
+    // $site->cron_interval or it is empty for some reason. This means, however,
+    // that we must store cron_interval also for sites using default value,
+    // or the cron would never run on newly created/cloned site.
+    //
+    if (!$site->last_cron) {
+      $this_cron_interval = $site->cron_interval ? $site->cron_interval : ADV_CRON_TURNED_OFF;
+      if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
         $sites[$site->nid] = node_load($site->nid);
       }
     }
-    // Run cron if it has never ran before for this site.
-    elseif (!$site->last_cron && $cron_interval != HOSTING_ADVANCED_CRON_SITE_DISABLED) {
-      $sites[$site->nid] = node_load($site->nid);
+    else {
+      //
+      // Determine the cron interval. If not specified for this site,
+      // use the default hosting_advanced_cron_default_interval or
+      // ADV_CRON_DEFAULT.
+      //
+      $this_cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT);
+      //
+      // Run cron if it has already ran before for this site,
+      // and the cron is enabled on this site, but cron interval
+      // since last cron run has been exceeded.
+      //
+      if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
+        if ($site->last_cron + $this_cron_interval < time()) {
+          $sites[$site->nid] = node_load($site->nid);
+        }
+      }
     }
   }
   return $sites;
@@ -190,7 +221,7 @@ function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) 
     '#title' => t('Default cron interval'),
     '#options' => $options,
     '#description' => t('The cron interval to use for all sites unless overridden on the site node itself.'),
-    '#default_value' => variable_get('hosting_advanced_cron_default_interval', 86400),
+    '#default_value' => variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT),
   );
   $form['hosting_cron_use_backend'] = array(
     '#type' => 'radios',
@@ -231,8 +262,8 @@ function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
  */
 function hosting_advanced_cron_interval_options() {
   $options = array(
-    HOSTING_ADVANCED_CRON_SITE_DISABLED => t('Disabled'),
-    HOSTING_ADVANCED_CRON_SITE_DEFAULT => t('24h (default)'),
+    ADV_CRON_TURNED_OFF => t('Disabled'),
+    ADV_CRON_DEFAULT => t('24h (default)'),
   );
   $options += drupal_map_assoc(array(300, 600, 900, 1800, 3600, 10800, 21600, 43200, 86400, 604800), 'format_interval');
   return $options;
