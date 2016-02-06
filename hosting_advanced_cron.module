@@ -31,7 +31,7 @@ function hosting_advanced_cron_hosting_site_count() {
     WHERE n.type = 'site' AND hs.status = %d
     AND ((hac.cron_interval IS NOT NULL AND hac.cron_interval > 0)
     OR (hac.cron_interval IS NULL AND %d > 0))";
-  return db_result(db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT)));
+  return db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT))->fetchField();
 }
 
 /**
@@ -72,7 +72,7 @@ function hosting_advanced_cron_queue($count) {
       else {
         $this_tmp = '/tmp/';
       }
-      $result = db_query("SELECT p.publish_path FROM {hosting_platform} p LEFT JOIN {hosting_site} s ON p.nid=s.platform WHERE platform = %d", $platform->nid);
+      $result = db_query("SELECT p.publish_path FROM {hosting_platform} p LEFT JOIN {hosting_site} s ON p.nid=s.platform WHERE platform = :platform", array(':platform' => $platform->nid));
       while ($row = db_fetch_object($result)) {
         $this_platform_root = $row->publish_path;
       }
@@ -108,7 +108,12 @@ function hosting_advanced_cron_queue($count) {
     // with the task queue. There exists a chance that they might both try to save the
     // same node at the same time, and then an old record from the cron queue might
     // replace the newly updated record.
-    db_query("UPDATE {hosting_site} SET last_cron=%d WHERE nid=%d", time(), $site->nid);
+    db_update('hosting_site')
+      ->fields(array(
+        'last_cron' => REQUEST_TIME,
+      ))
+      ->condition('nid', $site->nid)
+      ->execute();
     // A small trick to avoid high load when still too many crons are started at once.
     sleep(5);
   }
@@ -135,7 +140,7 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
       case 'load':
         // When loading a site node, fetch the site's cron interval from the
         // database.
-        $result = db_query('SELECT cron_interval FROM {hosting_advanced_cron} WHERE nid = %d', $node->nid);
+        $result = db_query('SELECT cron_interval FROM {hosting_advanced_cron} WHERE nid = :nid', array(':nid' => $node->nid));
         $result = db_fetch_array($result);
         // If no specific cron interval was set for this site, use the default.
         if (!$result) {
@@ -164,7 +169,7 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
  * Retrieves a list of sites for which to run cron.
  */
 function hosting_advanced_cron_get_sites($limit = 5) {
-  $result = db_query("SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = 'site' AND hs.status = %d ORDER BY hs.last_cron ASC, n.nid ASC", HOSTING_SITE_ENABLED);
+  $result = db_query("SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = 'site' AND hs.status = :status ORDER BY hs.last_cron ASC, n.nid ASC", array(':status' => HOSTING_SITE_ENABLED);
   while (($site = db_fetch_object($result)) && (count($sites) <= $limit)) {
     //
     // Run cron if it has never ran before for this site,
