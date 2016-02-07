@@ -169,7 +169,7 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
  * Retrieves a list of sites for which to run cron.
  */
 function hosting_advanced_cron_get_sites($limit = 5) {
-  $result = db_query("SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = 'site' AND hs.status = :status ORDER BY hs.last_cron ASC, n.nid ASC", array(':status' => HOSTING_SITE_ENABLED);
+  $result = db_query('SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = :site AND hs.status = :status ORDER BY hs.last_cron ASC, n.nid ASC', array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED));
   while (($site = db_fetch_object($result)) && (count($sites) <= $limit)) {
     //
     // Run cron if it has never ran before for this site,
