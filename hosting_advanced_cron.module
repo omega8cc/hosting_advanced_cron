@@ -28,10 +28,10 @@ function hosting_advanced_cron_hosting_site_count() {
   $sql = "SELECT count(n.nid) FROM {node} n
     LEFT JOIN {hosting_site} hs ON n.nid = hs.nid
     LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid
-    WHERE n.type = 'site' AND hs.status = %d
+    WHERE n.type = :site AND hs.status = :status
     AND ((hac.cron_interval IS NOT NULL AND hac.cron_interval > 0)
-    OR (hac.cron_interval IS NULL AND %d > 0))";
-  return db_query($sql, HOSTING_SITE_ENABLED, variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT))->fetchField();
+    OR (hac.cron_interval IS NULL AND :cron_interval > 0))";
+  return db_query($sql, array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED, ':cron_interval' => variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT)))->fetchField();
 }
 
 /**
