@@ -77,7 +77,7 @@ function hosting_advanced_cron_queue($count) {
         $this_tmp = '/tmp/';
       }
       $result = db_query("SELECT p.publish_path FROM {hosting_platform} p LEFT JOIN {hosting_site} s ON p.nid=s.platform WHERE platform = :platform", array(':platform' => $platform->nid));
-      while ($row = db_fetch_object($result)) {
+      foreach ($result as $row) {
         $this_platform_root = $row->publish_path;
       }
       if (is_readable($this_platform_root . '/core')) {
@@ -174,44 +174,46 @@ function hosting_advanced_cron_nodeapi(&$node, $op, $a3 = null) {
  */
 function hosting_advanced_cron_get_sites($limit = 5) {
   $result = db_query('SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = :site AND hs.status = :status ORDER BY hs.last_cron ASC, n.nid ASC', array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED));
-  while (($site = db_fetch_object($result)) && (count($sites) <= $limit)) {
-    //
-    // Run cron if it has never ran before for this site,
-    // but only if it has been enabled for this site.
-    //
-    // This shouldn't happen for any newly cloned site,
-    // no matter if the cron is enabled on the source site or not,
-    // to avoid running cron on the cloned copy without any prior control.
-    //
-    // Note that we can't use hosting_advanced_cron_default_interval here
-    // if $site->cron_interval is empty / not set yet, so we have to ignore
-    // the first cron run attempt by using ADV_CRON_TURNED_OFF by default
-    // instead of hosting_advanced_cron_default_interval if we can't read
-    // $site->cron_interval or it is empty for some reason. This means, however,
-    // that we must store cron_interval also for sites using default value,
-    // or the cron would never run on newly created/cloned site.
-    //
-    if (!$site->last_cron) {
-      $this_cron_interval = $site->cron_interval ? $site->cron_interval : ADV_CRON_TURNED_OFF;
-      if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
-        $sites[$site->nid] = node_load($site->nid);
-      }
-    }
-    else {
+  foreach ($result as $site) {
+    if (count($sites) <= $limit) {
       //
-      // Determine the cron interval. If not specified for this site,
-      // use the default hosting_advanced_cron_default_interval or
-      // ADV_CRON_DEFAULT.
+      // Run cron if it has never ran before for this site,
+      // but only if it has been enabled for this site.
       //
-      $this_cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT);
+      // This shouldn't happen for any newly cloned site,
+      // no matter if the cron is enabled on the source site or not,
+      // to avoid running cron on the cloned copy without any prior control.
       //
-      // Run cron if it has already ran before for this site,
-      // and the cron is enabled on this site, but cron interval
-      // since last cron run has been exceeded.
+      // Note that we can't use hosting_advanced_cron_default_interval here
+      // if $site->cron_interval is empty / not set yet, so we have to ignore
+      // the first cron run attempt by using ADV_CRON_TURNED_OFF by default
+      // instead of hosting_advanced_cron_default_interval if we can't read
+      // $site->cron_interval or it is empty for some reason. This means, however,
+      // that we must store cron_interval also for sites using default value,
+      // or the cron would never run on newly created/cloned site.
       //
-      if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
-        if ($site->last_cron + $this_cron_interval < time()) {
+      if (!$site->last_cron) {
+        $this_cron_interval = $site->cron_interval ? $site->cron_interval : ADV_CRON_TURNED_OFF;
+        if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
           $sites[$site->nid] = node_load($site->nid);
+        }
+      }
+      else {
+        //
+        // Determine the cron interval. If not specified for this site,
+        // use the default hosting_advanced_cron_default_interval or
+        // ADV_CRON_DEFAULT.
+        //
+        $this_cron_interval = $site->cron_interval ? $site->cron_interval : variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT);
+        //
+        // Run cron if it has already ran before for this site,
+        // and the cron is enabled on this site, but cron interval
+        // since last cron run has been exceeded.
+        //
+        if ($this_cron_interval != ADV_CRON_TURNED_OFF) {
+          if ($site->last_cron + $this_cron_interval < time()) {
+            $sites[$site->nid] = node_load($site->nid);
+          }
         }
       }
     }
