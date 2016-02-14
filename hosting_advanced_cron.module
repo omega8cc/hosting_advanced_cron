@@ -128,24 +128,6 @@ function hosting_advanced_cron_queue($count) {
 }
 
 /**
- * Implements hook_node_view().
- */
-function hosting_advanced_cron_node_view($node, $view_mode, $langcode) {
-  if ($node->type == 'site') {
-    if ($view_mode != 'teaser') {
-      $cron_text = $node->cron_interval == ADV_CRON_TURNED_OFF ? t('Disabled') : t('Every !interval', array('!interval' => format_interval($node->cron_interval)));
-      $cron_text .= '<br />' . t('(Last run: !interval)', array('!interval' => hosting_format_interval($node->last_cron)));
-      $node->content['info']['last_cron'] = array(
-        '#type' => 'item',
-        '#title' => t('Cron'),
-        '#weight' => 20,
-        '#markup' => $cron_text,
-      );
-    }
-  }
-}
-
-/**
  * Implements hook_node_load().
  */
 function hosting_advanced_cron_node_load($nodes, $types) {
@@ -161,6 +143,24 @@ function hosting_advanced_cron_node_load($nodes, $types) {
         print "</ br></ br></ br><h1>YYY " . $result . " ZZZ</h1>";
       }
       return $this_cron_interval;
+    }
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function hosting_advanced_cron_node_view($node, $view_mode, $langcode) {
+  if ($node->type == 'site') {
+    if ($view_mode != 'teaser') {
+      $cron_text = $node->cron_interval == ADV_CRON_TURNED_OFF ? t('Disabled') : t('Every !interval', array('!interval' => format_interval($node->cron_interval)));
+      $cron_text .= '<br />' . t('(Last run: !interval)', array('!interval' => hosting_format_interval($node->last_cron)));
+      $node->content['info']['last_cron'] = array(
+        '#type' => 'item',
+        '#title' => t('Cron'),
+        '#weight' => 20,
+        '#markup' => $cron_text,
+      );
     }
   }
 }
@@ -324,12 +324,23 @@ function hosting_advanced_cron_form_hosting_settings_alter(&$form, $form_state) 
  */
 function hosting_advanced_cron_form_site_node_form_alter(&$form, $form_state) {
   if (user_access('configure site cron interval')) {
+    if (!empty($form['#node']) && isset($form['#node']->nid)) {
+      if (empty($form['#node']->cron_interval)) {
+        $default_value = ADV_CRON_TURNED_OFF;
+      }
+      else {
+        $default_value = $form['#node']->cron_interval;
+      }
+    }
+    else {
+      $default_value = variable_get('hosting_advanced_cron_default_interval', 3600);
+    }
     $form['cron_interval'] = array(
       '#type' => 'select',
       '#title' => t('Cron interval'),
       '#options' => hosting_advanced_cron_interval_options(),
       '#description' => t('Cron will be automatically run for this site at the interval defined here.'),
-      '#default_value' => $form['#node']->cron_interval,
+      '#default_value' => $default_value,
       '#weight' => 3,
     );
     return $form;
