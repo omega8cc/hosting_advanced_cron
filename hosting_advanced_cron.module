@@ -38,7 +38,11 @@ function hosting_advanced_cron_hosting_site_count() {
  * Implements hook_permission().
  */
 function hosting_advanced_cron_permission() {
-  return array('configure site cron interval');
+  return array(
+    'configure site cron interval' => array(
+      'title' => t('configure site cron interval'),
+    ),
+  );
 }
 
 /**
