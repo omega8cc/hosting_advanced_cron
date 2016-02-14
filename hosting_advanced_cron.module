@@ -14,12 +14,14 @@ function hosting_advanced_cron_hosting_queues() {
   $items['advanced_cron'] = array(
     'type' => 'batch',
     'name' => t('Advanced Cron queue'),
-    'description' => t('Run cron on hosted sites.'),
+    'description' => t('Run advanced cron on hosted sites.'),
     'total_items' => hosting_advanced_cron_hosting_site_count(),
     'frequency' => strtotime("1 min", 0),
     'min_threads' => 6,
     'max_threads' => 12,
     'threshold' => 100,
+    'singular' => t('site'),
+    'plural' => t('sites'),
   );
   return $items;
 }
@@ -31,7 +33,9 @@ function hosting_advanced_cron_hosting_site_count() {
     WHERE n.type = :site AND hs.status = :status
     AND ((hac.cron_interval IS NOT NULL AND hac.cron_interval > 0)
     OR (hac.cron_interval IS NULL AND :cron_interval > 0))";
-  return db_query($sql, array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED, ':cron_interval' => variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT)))->fetchField();
+  $result = db_query($sql, array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED, ':cron_interval' => variable_get('hosting_advanced_cron_default_interval', ADV_CRON_DEFAULT)))->fetchField();
+  //print "</ br></ br></ br><h1>QQQ " . $result . " UUU</h1>";
+  return $result;
 }
 
 /**
@@ -242,7 +246,7 @@ function hosting_advanced_cron_node_insert($node) {
 function hosting_advanced_cron_get_sites($limit = 5) {
   $result = db_query('SELECT n.nid, hs.last_cron, hac.cron_interval FROM {node} n LEFT JOIN {hosting_site} hs ON n.nid = hs.nid LEFT JOIN {hosting_advanced_cron} hac ON n.nid = hac.nid WHERE n.type = :site AND hs.status = :status ORDER BY hs.last_cron ASC, n.nid ASC', array(':site' => 'site', ':status' => HOSTING_SITE_ENABLED));
   foreach ($result as $site) {
-    $site =  (array) $site;
+    //$site =  (array) $site;
     if (count($sites) <= $limit) {
       //
       // Run cron if it has never ran before for this site,
